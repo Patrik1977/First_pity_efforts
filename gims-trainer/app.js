@@ -3,7 +3,53 @@
   var modules = global.ModulesData || [];
   var trainingQuestions = global.QuestionBankData || [];
   var officialQuestions = global.QuestionBankOfficialData || [];
-  var questions = trainingQuestions.concat(officialQuestions);
+  function normalizePrompt(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  }
+
+  function mergeQuestionBanks(training, official) {
+    var seenById = {};
+    var seenByPrompt = {};
+    var merged = [];
+    var dropped = {
+      duplicateId: 0,
+      duplicatePrompt: 0,
+      invalid: 0,
+    };
+
+    [training, official].forEach(function (list) {
+      list.forEach(function (question) {
+        if (!question || typeof question !== "object") {
+          dropped.invalid += 1;
+          return;
+        }
+        if (seenById[question.id]) {
+          dropped.duplicateId += 1;
+          return;
+        }
+        var promptKey = normalizePrompt(question.prompt);
+        if (promptKey && seenByPrompt[promptKey]) {
+          dropped.duplicatePrompt += 1;
+          return;
+        }
+
+        seenById[question.id] = true;
+        if (promptKey) seenByPrompt[promptKey] = true;
+        merged.push(question);
+      });
+    });
+
+    return {
+      questions: merged,
+      dropped: dropped,
+    };
+  }
+
+  var bankMerge = mergeQuestionBanks(trainingQuestions, officialQuestions);
+  var questions = bankMerge.questions;
   var Storage = global.Storage;
   var ExamCore = global.ExamCore;
   var UI = global.UIRender;
@@ -428,8 +474,19 @@
         trainingQuestions.length +
         ", официальных " +
         officialQuestions.length +
+        ", после дедупликации " +
+        questions.length +
         "."
     );
+    if (bankMerge.dropped.duplicatePrompt || bankMerge.dropped.duplicateId) {
+      validationLines.unshift(
+        "Удалено дублей: prompt=" +
+          bankMerge.dropped.duplicatePrompt +
+          ", id=" +
+          bankMerge.dropped.duplicateId +
+          "."
+      );
+    }
     if (officialQuestions.length === 0) {
       validationLines.unshift("Официальный банк не подключен: используется только тренировочный набор.");
     }

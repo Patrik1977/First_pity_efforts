@@ -1,7 +1,7 @@
 (function attachAppConfig(global) {
   const AppConfig = {
     appVersion: 2,
-    questionBankLabel: "Тренировочные + архивные вопросы",
+    questionBankLabel: "Тренировочные + расширенный импортный банк",
     defaults: {
       scenario: "full",
       sessionMode: "training",
