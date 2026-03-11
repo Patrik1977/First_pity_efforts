@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Life jackets and onboard safety">
+  <rect width="640" height="360" fill="#f8fcff"/>
+  <rect x="0" y="236" width="640" height="124" fill="#d6ecf8"/>
+  <circle cx="206" cy="140" r="88" fill="#ffffff" stroke="#79a7bf" stroke-width="4"/>
+  <path d="M170 84 L242 84 L262 150 L206 226 L150 150 Z" fill="#f3a63f"/>
+  <path d="M190 122 L222 122" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M184 152 L228 152" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="450" cy="150" r="90" fill="#ffffff" stroke="#79a7bf" stroke-width="4"/>
+  <circle cx="450" cy="150" r="58" fill="none" stroke="#d65050" stroke-width="18"/>
+  <line x1="493" y1="194" x2="548" y2="252" stroke="#d65050" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="548" cy="252" r="16" fill="#d65050"/>
+</svg>

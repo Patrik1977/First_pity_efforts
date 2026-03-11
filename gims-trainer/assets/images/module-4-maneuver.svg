@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Boat maneuvering and crossing rules">
+  <rect width="640" height="360" fill="#f4fbff"/>
+  <rect x="0" y="220" width="640" height="140" fill="#d2eaf6"/>
+  <path d="M90 250 L190 250 L212 226 L68 226 Z" fill="#2679aa"/>
+  <path d="M450 190 L550 190 L572 166 L428 166 Z" fill="#2f8a6c"/>
+  <path d="M190 220 C260 190 320 170 430 160" stroke="#f0a43f" stroke-width="7" fill="none" stroke-dasharray="10 10"/>
+  <path d="M450 160 C380 175 310 195 215 225" stroke="#3c6ea5" stroke-width="7" fill="none" stroke-dasharray="10 10"/>
+  <polygon points="432,145 455,157 436,173" fill="#3c6ea5"/>
+  <polygon points="416,176 438,162 441,184" fill="#f0a43f"/>
+  <circle cx="320" cy="176" r="44" fill="#fff" stroke="#7eaec7" stroke-width="4"/>
+  <path d="M320 152 L320 198" stroke="#1e5c82" stroke-width="6"/>
+  <path d="M300 176 L340 176" stroke="#1e5c82" stroke-width="6"/>
+</svg>

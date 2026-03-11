@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Boat documents and checklist">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dff4ff"/>
+      <stop offset="1" stop-color="#ecfff3"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <rect x="70" y="60" width="230" height="250" rx="20" fill="#ffffff" stroke="#7aa5bf" stroke-width="4"/>
+  <rect x="102" y="95" width="166" height="18" rx="9" fill="#7aa5bf"/>
+  <rect x="102" y="130" width="166" height="12" rx="6" fill="#c2dbe8"/>
+  <rect x="102" y="156" width="166" height="12" rx="6" fill="#c2dbe8"/>
+  <rect x="102" y="182" width="166" height="12" rx="6" fill="#c2dbe8"/>
+  <rect x="102" y="208" width="166" height="12" rx="6" fill="#c2dbe8"/>
+  <circle cx="445" cy="175" r="100" fill="#ffffff" stroke="#6f9fba" stroke-width="4"/>
+  <path d="M360 220 L430 230 L525 225 L560 210 L560 235 L360 235 Z" fill="#2c82b8"/>
+  <path d="M445 108 L445 218" stroke="#1f5a7f" stroke-width="8" stroke-linecap="round"/>
+  <path d="M445 108 L490 135 L445 162 Z" fill="#f4b544"/>
+  <path d="M410 258 Q445 280 480 258" stroke="#2c82b8" stroke-width="6" fill="none"/>
+</svg>

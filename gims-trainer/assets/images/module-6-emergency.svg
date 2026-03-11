@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Emergency response and first aid">
+  <rect width="640" height="360" fill="#f7fbff"/>
+  <rect x="0" y="240" width="640" height="120" fill="#d9edf8"/>
+  <rect x="96" y="84" width="214" height="168" rx="18" fill="#ffffff" stroke="#78a4be" stroke-width="4"/>
+  <rect x="168" y="116" width="70" height="102" rx="10" fill="#de5454"/>
+  <rect x="151" y="133" width="104" height="68" rx="10" fill="#de5454"/>
+  <rect x="360" y="86" width="188" height="168" rx="18" fill="#ffffff" stroke="#78a4be" stroke-width="4"/>
+  <path d="M414 224 L414 140 C414 117 432 98 455 98 C478 98 496 117 496 140 L496 224" fill="none" stroke="#f0a23e" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="455" cy="132" r="24" fill="#f0a23e"/>
+  <path d="M112 280 H530" stroke="#8ab7cc" stroke-width="6"/>
+</svg>

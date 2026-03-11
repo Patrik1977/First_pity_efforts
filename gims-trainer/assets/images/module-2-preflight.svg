@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Pre-flight boat inspection">
+  <rect width="640" height="360" fill="#f3fbff"/>
+  <rect x="0" y="250" width="640" height="110" fill="#d4ecfa"/>
+  <path d="M120 220 L300 220 L360 180 L470 180 L510 220 L560 220 L560 250 L120 250 Z" fill="#1f7cb3"/>
+  <rect x="310" y="146" width="110" height="34" rx="8" fill="#dff1fb" stroke="#22688f" stroke-width="4"/>
+  <circle cx="220" cy="250" r="28" fill="#0f4f74"/>
+  <circle cx="470" cy="250" r="28" fill="#0f4f74"/>
+  <rect x="70" y="50" width="180" height="160" rx="16" fill="#ffffff" stroke="#7cb1cc" stroke-width="4"/>
+  <circle cx="106" cy="88" r="8" fill="#2c82b8"/>
+  <rect x="124" y="80" width="96" height="14" rx="7" fill="#b8d9ea"/>
+  <circle cx="106" cy="123" r="8" fill="#2c82b8"/>
+  <rect x="124" y="115" width="96" height="14" rx="7" fill="#b8d9ea"/>
+  <circle cx="106" cy="158" r="8" fill="#2c82b8"/>
+  <rect x="124" y="150" width="96" height="14" rx="7" fill="#b8d9ea"/>
+  <circle cx="503" cy="96" r="52" fill="#fff" stroke="#5f95b4" stroke-width="4"/>
+  <path d="M503 64 L503 98 L528 120" stroke="#1f5a7f" stroke-width="7" stroke-linecap="round"/>
+</svg>

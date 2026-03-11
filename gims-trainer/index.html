@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ГИМС-тренажер</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+
+    <main class="app-shell">
+      <header class="hero card">
+        <p class="hero-badge">Офлайн-подготовка к экзамену ГИМС</p>
+        <h1>ГИМС-тренажер</h1>
+        <p class="hero-subtitle">
+          Учебный путь: обучение с мини-проверками -> тренировка/экзамен -> аналитика слабых тем.
+        </p>
+      </header>
+
+      <section id="setupView" class="card">
+        <h2 id="setupHeading" tabindex="-1">План подготовки</h2>
+        <p class="setup-note">
+          Источник банка: тренировочные + архивные формулировки (проверяйте актуальность перед официальной аттестацией).
+        </p>
+
+        <div class="plan-grid">
+          <article class="plan-card">
+            <h3>Шаг 1. Обучение</h3>
+            <p id="learningStatusText">Материалы не завершены.</p>
+            <button id="startLearningBtn" class="primary-btn">Открыть обучение</button>
+            <button id="quickMotorStartBtn" class="ghost-btn">Готовлюсь на моторную лодку</button>
+          </article>
+
+          <article class="plan-card">
+            <h3>Шаг 2. Билеты</h3>
+            <label class="field" for="sessionModeSelect">
+              <span>Режим сессии</span>
+              <select id="sessionModeSelect">
+                <option value="training">Тренировка (разбор после каждого вопроса)</option>
+                <option value="exam">Экзамен (разбор только в конце)</option>
+              </select>
+            </label>
+
+            <label class="field" for="examScenarioSelect">
+              <span>Сценарий</span>
+              <select id="examScenarioSelect">
+                <option value="full">Полный комплект (тип + район)</option>
+                <option value="type-ticket">Билет по типу судна</option>
+                <option value="area-ticket">Билет по району плавания</option>
+                <option value="mistakes">Работа над ошибками</option>
+              </select>
+            </label>
+
+            <label class="field" for="vesselTypeSelect">
+              <span>Тип судна</span>
+              <select id="vesselTypeSelect">
+                <option value="motor">Маломерное моторное судно</option>
+                <option value="sail">Маломерное парусное судно</option>
+                <option value="jetski">Гидроцикл</option>
+              </select>
+            </label>
+
+            <label class="field" for="areaSelect">
+              <span>Район плавания</span>
+              <select id="areaSelect">
+                <option value="inland-waters">Внутренние воды РФ</option>
+                <option value="inland-waterways">Внутренние водные пути РФ</option>
+                <option value="sea-territorial">Внутренние морские воды и территориальное море РФ</option>
+                <option value="coastal-20">Морские прибрежные воды до 20 миль от берега</option>
+              </select>
+            </label>
+
+            <label id="mistakesCountField" class="field" for="mistakesCountSelect">
+              <span>Длина короткого билета по ошибкам</span>
+              <select id="mistakesCountSelect"></select>
+            </label>
+
+            <button id="startExamBtn" class="primary-btn" disabled>Начать</button>
+            <p id="examLockText" class="setup-note">Сначала завершите обучение.</p>
+            <p id="mistakesHintText" class="setup-note hidden"></p>
+
+            <div class="actions-row compact-row">
+              <button id="clearMistakesBtn" class="ghost-btn">Очистить ошибки</button>
+              <button id="resetLearningBtn" class="ghost-btn">Сбросить обучение</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="module-progress-wrap">
+          <h3>Прогресс обучения</h3>
+          <p id="moduleProgressText">0 / 0 модулей пройдено</p>
+          <div class="progress-track">
+            <div id="moduleProgressBar" class="progress-bar"></div>
+          </div>
+          <div id="moduleChecklist" class="module-checklist"></div>
+        </div>
+
+        <div class="module-progress-wrap">
+          <h3>Мой прогресс</h3>
+          <div class="result-grid compact-grid">
+            <article class="result-card">
+              <p>Попыток</p>
+              <h3 id="historyAttemptsValue">0</h3>
+            </article>
+            <article class="result-card">
+              <p>Средняя точность</p>
+              <h3 id="historyAverageValue">0%</h3>
+            </article>
+            <article class="result-card">
+              <p>Вопросов в ошибках</p>
+              <h3 id="historyMistakesValue">0</h3>
+            </article>
+          </div>
+
+          <div class="analytics-grid">
+            <article>
+              <h4>Слабые темы</h4>
+              <div id="weakTopicsBox"></div>
+            </article>
+            <article>
+              <h4>Сильные темы</h4>
+              <div id="strongTopicsBox"></div>
+            </article>
+          </div>
+
+          <h4>Топ проблемных вопросов</h4>
+          <div id="topProblemsBox"></div>
+
+          <h4>Последние попытки</h4>
+          <div id="historyList" class="history-list"></div>
+        </div>
+
+        <div class="module-progress-wrap">
+          <h3>Диагностика банка вопросов</h3>
+          <div id="bankValidationBox"></div>
+        </div>
+
+        <div class="actions-row">
+          <button id="exportProgressBtn" class="ghost-btn">Экспорт прогресса (JSON)</button>
+          <button id="importProgressBtn" class="ghost-btn">Импорт прогресса (JSON)</button>
+          <input id="importProgressInput" type="file" accept="application/json" class="hidden-file-input" />
+        </div>
+      </section>
+
+      <section id="learningView" class="card hidden">
+        <h2 id="learningHeading" tabindex="-1">Обучение</h2>
+        <div class="view-head">
+          <h3 id="learningTitle">Модуль</h3>
+          <p id="learningCounter" class="meta-text">Модуль 1</p>
+        </div>
+
+        <div class="learning-layout">
+          <div class="learning-image-wrap">
+            <img id="learningImage" src="" alt="Иллюстрация модуля" class="learning-image" />
+            <div id="learningImageFallback" class="image-fallback hidden">Иллюстрация недоступна</div>
+          </div>
+          <article class="learning-content">
+            <p id="learningSummary" class="learning-summary"></p>
+            <h3>Что нужно запомнить</h3>
+            <ul id="learningPoints"></ul>
+            <h3>Мини-памятка</h3>
+            <p id="learningMemo" class="memo-box"></p>
+            <p id="modulePassBadge" class="setup-note"></p>
+          </article>
+        </div>
+
+        <div class="module-progress-wrap">
+          <h3>Мини-проверка модуля</h3>
+          <div id="learningQuizBox"></div>
+          <article id="learningQuizFeedback" class="feedback-box hidden"></article>
+          <div class="actions-row compact-row">
+            <button id="checkModuleQuizBtn" class="primary-btn">Проверить мини-квиз</button>
+          </div>
+        </div>
+
+        <div class="actions-row">
+          <button id="prevModuleBtn" class="ghost-btn">Назад</button>
+          <button id="nextModuleBtn" class="ghost-btn">Далее</button>
+          <button id="backToSetupFromLearningBtn" class="ghost-btn">К плану</button>
+        </div>
+      </section>
+
+      <section id="examView" class="card hidden">
+        <h2 id="examHeading" tabindex="-1">Сессия</h2>
+        <div class="view-head">
+          <p id="examCounter" class="meta-text">Вопрос 1</p>
+        </div>
+
+        <div class="progress-track">
+          <div id="examProgressBar" class="progress-bar"></div>
+        </div>
+
+        <article class="question-card">
+          <p id="questionTopic" class="question-topic"></p>
+          <h3 id="questionPrompt"></h3>
+          <div id="optionsBox" class="options-box"></div>
+        </article>
+
+        <article id="feedbackBox" class="feedback-box hidden" aria-live="polite"></article>
+
+        <div class="actions-row">
+          <button id="submitOrNextBtn" class="primary-btn">Ответить</button>
+          <button id="exitExamBtn" class="ghost-btn">Прервать и вернуться</button>
+        </div>
+      </section>
+
+      <section id="resultView" class="card hidden">
+        <h2 id="resultHeading" tabindex="-1">Результат</h2>
+        <p id="resultMeta" class="result-meta"></p>
+
+        <div class="result-grid">
+          <article class="result-card">
+            <p>Правильных</p>
+            <h3 id="correctValue">0</h3>
+          </article>
+          <article class="result-card">
+            <p>Всего</p>
+            <h3 id="totalValue">0</h3>
+          </article>
+          <article class="result-card">
+            <p>Точность</p>
+            <h3 id="percentValue">0%</h3>
+          </article>
+        </div>
+
+        <div class="module-progress-wrap">
+          <h3>Ошибки по темам</h3>
+          <div id="resultTopicsBox"></div>
+        </div>
+
+        <div class="module-progress-wrap">
+          <h3>Детальный разбор</h3>
+          <div id="reviewList"></div>
+        </div>
+
+        <div class="actions-row">
+          <button id="restartExamBtn" class="primary-btn">Пройти новый билет</button>
+          <button id="backToSetupBtn" class="ghost-btn">К плану</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="data/modules.js"></script>
+    <script src="data/questions.js"></script>
+    <script src="data/questions-archive.js"></script>
+    <script src="core/storage.js"></script>
+    <script src="core/exam.js"></script>
+    <script src="ui/render.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
