@@ -44,6 +44,19 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function evaluateWithoutAutoKey(isAnswered, message) {
+    return {
+      isAnswered,
+      isCorrect: Boolean(isAnswered),
+      score: isAnswered ? 0.65 : 0,
+      detail: {
+        noAutoCheck: true,
+        noAutoCheckMessage:
+          message || "Для этого задания нет эталона ответа в локальном пакете. Нужна учебная самопроверка.",
+      },
+    };
+  }
+
   function lockContainer(container) {
     container.querySelectorAll("input, textarea, select, button").forEach((element) => {
       element.disabled = true;
@@ -452,6 +465,19 @@
     if (type === "single-choice") {
       const selectedIndex = Number(userAnswer && userAnswer.selectedIndex);
       const isAnswered = Number.isInteger(selectedIndex) && selectedIndex >= 0;
+      if (
+        question.selfCheckOnly ||
+        !Array.isArray(question.options) ||
+        !question.options.length ||
+        !Number.isInteger(question.correctIndex) ||
+        question.correctIndex < 0 ||
+        question.correctIndex >= question.options.length
+      ) {
+        return evaluateWithoutAutoKey(
+          isAnswered,
+          "В этом официальном задании требуется сверка с ключом/разбором: автопроверка недоступна.",
+        );
+      }
       const isCorrect = isAnswered && selectedIndex === question.correctIndex;
       return { isAnswered, isCorrect, score: isCorrect ? 1 : 0, detail: {} };
     }
@@ -462,6 +488,12 @@
       );
       const correct = uniqueSorted(Array.isArray(question.correctAnswers) ? question.correctAnswers : []);
       const isAnswered = selected.length > 0;
+      if (question.selfCheckOnly || !correct.length) {
+        return evaluateWithoutAutoKey(
+          isAnswered,
+          "Задание с множественным выбором требует сверки по официальному ключу (учебная самопроверка).",
+        );
+      }
       const matchCount = selected.filter((value) => correct.includes(value)).length;
       const score = correct.length ? Math.max(0, (matchCount - Math.max(0, selected.length - matchCount)) / correct.length) : 0;
       const isCorrect = arraysEqual(selected, correct);
@@ -472,6 +504,12 @@
       const value = normalizeText(userAnswer && userAnswer.text);
       const accepted = (question.acceptedAnswers || []).map(normalizeText).filter(Boolean);
       const isAnswered = Boolean(value);
+      if (question.selfCheckOnly || !accepted.length) {
+        return evaluateWithoutAutoKey(
+          isAnswered,
+          "Для этого краткого ответа нет эталона в локальном пакете, используйте самопроверку.",
+        );
+      }
       const isCorrect = isAnswered && accepted.includes(value);
       return { isAnswered, isCorrect, score: isCorrect ? 1 : 0, detail: {} };
     }
@@ -483,6 +521,12 @@
       const answer = Number(question.numericAnswer);
       const tolerance = Number(question.tolerance || 0.01);
       const isAnswered = Number.isFinite(value);
+      if (question.selfCheckOnly || !Number.isFinite(answer)) {
+        return evaluateWithoutAutoKey(
+          isAnswered,
+          "Числовой ответ сохранён. Для проверки нужен официальный ключ или ручная сверка.",
+        );
+      }
       const isCorrect = isAnswered && Math.abs(value - answer) <= tolerance;
       return { isAnswered, isCorrect, score: isCorrect ? 1 : 0, detail: { value } };
     }
@@ -551,6 +595,9 @@
 
   function formatCorrectAnswer(question) {
     const type = normalizeType(question.type);
+    if (question && question.selfCheckOnly) {
+      return "Автопроверка недоступна: сверяйтесь с официальным ключом/разбором";
+    }
     if (type === "single-choice") {
       return (question.options && question.options[question.correctIndex]) || "";
     }

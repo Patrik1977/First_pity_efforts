@@ -991,13 +991,15 @@
       }
       const suspicious =
         prompt.includes("при оценке грамотности") ||
-        prompt.includes("критериев") ||
-        prompt.includes("изложения и сочинения") ||
-        prompt.includes("в соответствии с порядком");
+        prompt.includes("система оценивания экзаменационной работы") ||
+        prompt.includes("номер задания правильный ответ") ||
+        prompt.includes("критерии оценивания выполнения заданий") ||
+        prompt.includes("в соответствии с порядком") ||
+        prompt.includes("третья проверка");
       if (suspicious) {
         return false;
       }
-      if (prompt.length > 520 && (question.type || "") === "extended-answer-lite") {
+      if (prompt.length > 2600) {
         return false;
       }
       return true;
@@ -2086,9 +2088,10 @@
   function renderExplanation(question, answerRecord, evaluation) {
     const exp = question.explanation || {};
     const correctText = AssessmentEngine.formatCorrectAnswer(question);
+    const noAutoCheck = Boolean(evaluation && evaluation.detail && evaluation.detail.noAutoCheck);
 
     ui.feedbackBox.classList.remove("hidden", "feedback-ok", "feedback-bad");
-    ui.feedbackBox.classList.add(evaluation.isCorrect ? "feedback-ok" : "feedback-bad");
+    ui.feedbackBox.classList.add(noAutoCheck ? "feedback-ok" : evaluation.isCorrect ? "feedback-ok" : "feedback-bad");
 
     const parts = [
       { label: "Почему", value: exp.why },
@@ -2140,10 +2143,17 @@
     }
 
     ui.feedbackBox.innerHTML = `
-      <h4>${evaluation.isCorrect ? "Верно" : "Нужно доработать"}</h4>
+      <h4>${noAutoCheck ? "Ответ сохранён" : evaluation.isCorrect ? "Верно" : "Нужно доработать"}</h4>
       <p><strong>Твой ответ:</strong> ${escapeHtml(formatUserAnswer(question, answerRecord.raw))}</p>
       <p><strong>Правильный ответ:</strong> ${escapeHtml(correctText)}</p>
       <p><strong>Оценка:</strong> ${Math.round((evaluation.score || 0) * 100)}%</p>
+      ${
+        noAutoCheck
+          ? `<p class="info-banner">Учебная самопроверка: ${escapeHtml(
+              evaluation.detail.noAutoCheckMessage || "автоматический ключ недоступен",
+            )}</p>`
+          : ""
+      }
       <div class="explain-grid">
         ${baseParts
           .map(
@@ -2222,6 +2232,19 @@
     const media = question.media || null;
     const speakingLite = question.speakingLite || null;
     const writingLite = question.writingLite || null;
+    const passage = String(question.passage || "").trim();
+
+    if (passage) {
+      pieces.push(`
+        <div class="supplement-card">
+          <strong>${escapeHtml(question.passageTitle || "Текст для заданий")}</strong>
+          <details open>
+            <summary>Показать текст</summary>
+            <p class="passage-text">${escapeHtml(passage)}</p>
+          </details>
+        </div>
+      `);
+    }
 
     if (media && media.type === "audio") {
       pieces.push(`

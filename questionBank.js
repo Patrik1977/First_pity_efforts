@@ -4299,8 +4299,339 @@
     return `OFFICIAL-${String(subjectKey || "").toUpperCase()}-${year || "UNK"}`;
   }
 
-  function normalizeOfficialEntry(rawQuestion, context, indexInContext) {
+  function officialContextKey(subjectKey, year, variant) {
+    return `${subjectKey || "na"}|${year || "na"}|${variant || "na"}`;
+  }
+
+  function parseOfficialQuestionNumber(question, indexInContext) {
+    const direct = Number(question && question.questionNumber);
+    if (Number.isInteger(direct) && direct > 0 && direct <= 40) {
+      return direct;
+    }
+
+    const subtopicMatch = String((question && question.subtopic) || "").match(/(\d{1,2})/);
+    if (subtopicMatch) {
+      const parsed = Number(subtopicMatch[1]);
+      if (Number.isInteger(parsed) && parsed > 0 && parsed <= 40) {
+        return parsed;
+      }
+    }
+
+    const idMatch = String((question && question.id) || "").match(/-(\d{1,2})$/);
+    if (idMatch) {
+      const parsed = Number(idMatch[1]);
+      if (Number.isInteger(parsed) && parsed > 0 && parsed <= 40) {
+        return parsed;
+      }
+    }
+
+    const fallback = Number(indexInContext) + 1;
+    return Number.isInteger(fallback) && fallback > 0 ? fallback : null;
+  }
+
+  function normalizeOfficialPromptText(prompt) {
+    return String(prompt || "")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\s*\n+\s*/g, " ")
+      .replace(/([А-Яа-яA-Za-z]+)\.\s*9\s*класс[^.]*-\s*\d+\s*\/\s*\d+/g, " ")
+      .replace(/\u00a0/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
+
+  function parseOfficialAnswerVariants(rawValue) {
+    const source = String(rawValue || "")
+      .replace(/<\s*или\s*>/gi, "|")
+      .replace(/\s+или\s+/gi, "|");
+
+    return uniqueValues(
+      source
+        .split("|")
+        .map((item) =>
+          String(item || "")
+            .replace(/[^\d,.\-]/g, "")
+            .replace(/^-+/, "")
+            .replace(/-+$/, "")
+            .trim(),
+        )
+        .filter(Boolean),
+    );
+  }
+
+  function parseOptionIndexesFromAnswer(answerVariant, optionCount) {
+    const value = String(answerVariant || "").trim();
+    if (!value) {
+      return [];
+    }
+
+    const compact = value.replace(/\s+/g, "");
+    const digitsOnly = compact.replace(/[^\d]/g, "");
+    const indexes = [];
+
+    if (digitsOnly.length > 1 && !/[,.]/.test(compact) && optionCount <= 9) {
+      digitsOnly.split("").forEach((digit) => {
+        const idx = Number(digit) - 1;
+        if (Number.isInteger(idx) && idx >= 0 && idx < optionCount) {
+          indexes.push(idx);
+        }
+      });
+      return uniqueValues(indexes).sort((a, b) => a - b);
+    }
+
+    const tokens = compact.split(/[^\d]+/).filter(Boolean);
+    tokens.forEach((token) => {
+      const idx = Number(token) - 1;
+      if (Number.isInteger(idx) && idx >= 0 && idx < optionCount) {
+        indexes.push(idx);
+      }
+    });
+
+    return uniqueValues(indexes).sort((a, b) => a - b);
+  }
+
+  function extractOfficialOptions(prompt) {
+    const source = String(prompt || "");
+    const regex = /(?:^|\s)(\d{1,2})\)\s*([\s\S]*?)(?=(?:\s\d{1,2}\)\s)|(?:\sОтвет\b)|$)/g;
+    const map = {};
+    let match;
+
+    while ((match = regex.exec(source))) {
+      const index = Number(match[1]);
+      if (!Number.isInteger(index) || index <= 0 || index > 12) {
+        continue;
+      }
+      const value = normalizeOfficialPromptText(match[2]).replace(/[.;,]+$/, "").trim();
+      if (!value || value.length > 240) {
+        continue;
+      }
+      map[index] = value;
+    }
+
+    const keys = Object.keys(map)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    if (keys.length < 2 || keys[0] !== 1) {
+      return [];
+    }
+    for (let i = 1; i < keys.length; i += 1) {
+      if (keys[i] !== keys[i - 1] + 1) {
+        return [];
+      }
+    }
+
+    return keys.map((key) => map[key]);
+  }
+
+  function extractPassageAndTask(prompt) {
+    const source = normalizeOfficialPromptText(prompt);
+    if (!source) {
+      return { promptText: "", passageText: "" };
+    }
+
+    const hasSentenceMarkers = /\(\d+\)/.test(source);
+    const textCue = /(прочитайте текст|выполните задания)/i.test(source);
+    if (!(hasSentenceMarkers && textCue) || source.length < 220) {
+      return { promptText: source, passageText: "" };
+    }
+
+    const taskMatch = source.match(
+      /(укажите|определите|найдите|запишите|выпишите|сформулируйте|как|почему|какое|какие|в каком|выполните)/i,
+    );
+    if (!taskMatch || taskMatch.index < 160) {
+      return { promptText: source, passageText: source };
+    }
+
+    const splitIndex = taskMatch.index;
+    const passageText = source.slice(0, splitIndex).trim();
+    const promptText = source.slice(splitIndex).trim();
+    if (!passageText || !promptText) {
+      return { promptText: source, passageText: "" };
+    }
+    return { promptText, passageText };
+  }
+
+  function parseOfficialAnswerMapFromPrompt(prompt) {
+    const source = normalizeOfficialPromptText(prompt);
+    if (
+      !/(система оценивания|правильн(?:ый|ого) ответ|номер задания|№ задания|критерии оценивания)/i.test(source)
+    ) {
+      return null;
+    }
+
+    const marker = source.search(/номер задания|№ задания|правильн(?:ый|ого) ответ/i);
+    const text = marker >= 0 ? source.slice(marker) : source;
+    const compact = text
+      .replace(/<\s*или\s*>/gi, "|")
+      .replace(/\s+или\s+/gi, "|")
+      .replace(/\s{2,}/g, " ");
+
+    const map = {};
+    const pairRegex = /(?:^|\s)([1-2]?\d)\s+([0-9][0-9.,-]*(?:\s*\|\s*[0-9][0-9.,-]*)?)/g;
+    let match;
+    while ((match = pairRegex.exec(compact))) {
+      const questionNumber = Number(match[1]);
+      if (!Number.isInteger(questionNumber) || questionNumber < 1 || questionNumber > 30) {
+        continue;
+      }
+      const answerToken = parseOfficialAnswerVariants(match[2]).join("|");
+      if (!answerToken) {
+        continue;
+      }
+      if (!map[questionNumber]) {
+        map[questionNumber] = answerToken;
+      }
+    }
+
+    return Object.keys(map).length >= 5 ? map : null;
+  }
+
+  function buildOfficialAnswerMaps(entries) {
+    const answerMaps = {};
+    (entries || []).forEach(({ question, context }) => {
+      const subject = question && (question.subject || question.subjectKey || context.subject);
+      if (!SUBJECT_CONFIG[subject]) {
+        return;
+      }
+      const year = normalizeYearToken((question && question.year) || context.year);
+      const variant = Number.isInteger(Number((question && question.variant) || context.variant))
+        ? Number((question && question.variant) || context.variant)
+        : null;
+      const key = officialContextKey(subject, year, variant);
+      const prompt = question && question.prompt;
+      const parsed = parseOfficialAnswerMapFromPrompt(prompt);
+      if (!parsed) {
+        return;
+      }
+      if (!answerMaps[key]) {
+        answerMaps[key] = {};
+      }
+      Object.entries(parsed).forEach(([qNumber, answer]) => {
+        if (!answerMaps[key][qNumber]) {
+          answerMaps[key][qNumber] = answer;
+        }
+      });
+    });
+    return answerMaps;
+  }
+
+  function ensureOfficialRubric(question) {
+    if (question.rubric && typeof question.rubric === "object") {
+      return question.rubric;
+    }
+    return {
+      requiredKeyPoints: ["ключевое условие задания", "логика решения", "итоговый ответ"],
+      optionalKeyPoints: ["ссылка на правило/формулу", "проверка результата"],
+      checklist: ["Условие прочитано точно", "Показан ход рассуждения", "Ответ сформулирован ясно"],
+      strongSample: "Сверьтесь с официальным ключом/критериями ФИПИ для этого задания.",
+      typicalErrors: ["пропущен ключевой шаг решения", "ответ без обоснования"],
+    };
+  }
+
+  function repairOfficialQuestion(rawQuestion, context, indexInContext, runtime) {
     const question = rawQuestion && typeof rawQuestion === "object" ? { ...rawQuestion } : {};
+    const subjectKey = question.subject || question.subjectKey || context.subject;
+    if (!SUBJECT_CONFIG[subjectKey]) {
+      return question;
+    }
+
+    const variant = Number.isInteger(Number(question.variant))
+      ? Number(question.variant)
+      : Number.isInteger(Number(context.variant))
+        ? Number(context.variant)
+        : null;
+    const year = normalizeYearToken(question.year || context.year);
+    const contextKey = officialContextKey(subjectKey, year, variant);
+    const questionNumber = parseOfficialQuestionNumber(question, indexInContext);
+    const answerMap = (runtime && runtime.answerMaps && runtime.answerMaps[contextKey]) || {};
+    const answerToken = answerMap && answerMap[String(questionNumber)];
+
+    const basePrompt = normalizeOfficialPromptText(question.prompt || "");
+    const split = extractPassageAndTask(basePrompt);
+    const promptText = split.promptText || basePrompt;
+
+    const repaired = {
+      ...question,
+      prompt: promptText || question.prompt || "",
+    };
+
+    if (split.passageText) {
+      if (runtime && runtime.lastPassageByContext) {
+        runtime.lastPassageByContext[contextKey] = split.passageText;
+      }
+      repaired.passage = split.passageText;
+      repaired.passageTitle = "Текст для заданий";
+      repaired.passageGroupId = `${contextKey}-text`;
+    } else if (
+      runtime &&
+      runtime.lastPassageByContext &&
+      runtime.lastPassageByContext[contextKey] &&
+      /(по тексту|предложени[ея]|прочитанн(?:ого|ый) текст)/i.test(promptText)
+    ) {
+      repaired.passage = runtime.lastPassageByContext[contextKey];
+      repaired.passageTitle = "Текст для заданий";
+      repaired.passageGroupId = `${contextKey}-text`;
+    }
+
+    const looksLikeWriting = /(сочинени|развёрнут|объяснит|аргумент|напишите|письменный ответ)/i.test(promptText);
+    const options = extractOfficialOptions(promptText);
+    const wantsMany = /(выберите\s+(два|три|несколько)|укажите\s+(два|три|несколько)|варианты ответов)/i.test(promptText);
+    const answerVariants = parseOfficialAnswerVariants(answerToken || "");
+
+    if (!looksLikeWriting && options.length >= 2) {
+      repaired.options = options;
+
+      if (answerVariants.length) {
+        const parsedAnswers = parseOptionIndexesFromAnswer(answerVariants[0], options.length);
+        if (parsedAnswers.length > 1 || wantsMany) {
+          repaired.type = "multi-choice";
+          repaired.correctAnswers = parsedAnswers.length ? parsedAnswers : [];
+          repaired.correctIndex = parsedAnswers.length ? parsedAnswers[0] : 0;
+        } else if (parsedAnswers.length === 1) {
+          repaired.type = "single-choice";
+          repaired.correctIndex = parsedAnswers[0];
+          repaired.correctAnswers = [];
+        } else {
+          repaired.type = wantsMany ? "multi-choice" : "single-choice";
+          repaired.selfCheckOnly = true;
+          repaired.correctAnswers = [];
+          repaired.correctIndex = 0;
+        }
+      } else {
+        repaired.type = wantsMany ? "multi-choice" : "single-choice";
+        repaired.selfCheckOnly = true;
+        repaired.correctAnswers = [];
+        repaired.correctIndex = 0;
+      }
+    } else if (!looksLikeWriting && answerVariants.length) {
+      const first = answerVariants[0].replace(",", ".");
+      const numeric = Number(first);
+      const numericCue = /(сколько|чему равн|вычисл|найдите|определите значение|масса|скорость|температур|длина|площад)/i
+        .test(promptText) &&
+        !/(номер|номера|вариант|цифр)/i.test(promptText);
+
+      if (Number.isFinite(numeric) && numericCue) {
+        repaired.type = "numeric-input";
+        repaired.numericAnswer = numeric;
+        repaired.tolerance = 0.02;
+      } else {
+        repaired.type = "short-text";
+        repaired.acceptedAnswers = answerVariants;
+      }
+    } else {
+      repaired.type = "extended-answer-lite";
+      repaired.rubric = ensureOfficialRubric(repaired);
+    }
+
+    repaired.tags = uniqueValues(
+      [].concat(repaired.tags || [], ["official-structured-repair"]),
+    );
+    return repaired;
+  }
+
+  function normalizeOfficialEntry(rawQuestion, context, indexInContext, runtime) {
+    const patched = repairOfficialQuestion(rawQuestion, context, indexInContext, runtime);
+    const question = patched && typeof patched === "object" ? { ...patched } : {};
     const subjectKey = question.subject || question.subjectKey || context.subject;
     if (!SUBJECT_CONFIG[subjectKey]) {
       return null;
@@ -4356,18 +4687,22 @@
     if (!prompt || prompt.length < 24) {
       return { ok: false, reason: "слишком короткий prompt" };
     }
-    if (prompt.length > 520) {
+    if (prompt.length > 2600) {
       return { ok: false, reason: "слишком длинный prompt" };
     }
 
     const answerMentions = (promptRaw.match(/Ответ:/gi) || []).length;
-    if (answerMentions > 1) {
+    if (answerMentions > 1 && !/\d\)\s*\S+/.test(promptRaw)) {
       return { ok: false, reason: "склейка нескольких заданий" };
     }
 
     const blacklist = [
       "при оценке грамотности",
-      "критериев",
+      "система оценивания экзаменационной работы",
+      "номер задания правильный ответ",
+      "критерии оценивания выполнения заданий",
+      "общие требования к выполнению заданий",
+      "используется с бланками ответов",
       "критерии оценивания",
       "порядком проведения государственной итоговой аттестации",
       "в соответствии с порядком",
@@ -4375,7 +4710,6 @@
       "фк1",
       "гк1",
       "изложения и сочинения",
-      "часть 3",
       "бланке ответов",
       "третья проверка",
       "эксперт",
@@ -4386,6 +4720,7 @@
 
     const looksLikeTask =
       /[?]/.test(promptRaw) ||
+      /\b1\)\s*\S+/.test(promptRaw) ||
       /(выберите|найдите|определите|укажите|решите|запишите|установите|прочитайте)/i.test(promptRaw);
     if (!looksLikeTask) {
       return { ok: false, reason: "не распознан формат задания" };
@@ -4505,6 +4840,11 @@
   function setOfficialPack(pack, options = {}) {
     const replace = options.replace !== false;
     const entries = buildPackEntries(pack);
+    const answerMaps = buildOfficialAnswerMaps(entries);
+    const runtime = {
+      answerMaps,
+      lastPassageByContext: {},
+    };
     const errors = [];
     const warnings = [];
     const dropped = {
@@ -4521,6 +4861,10 @@
       english: 0,
     };
 
+    if (Object.keys(answerMaps).length) {
+      warnings.push(`Найдено таблиц официальных ответов: ${Object.keys(answerMaps).length}.`);
+    }
+
     if (replace) {
       Object.keys(OFFICIAL_QUESTION_POOL).forEach((subjectKey) => {
         OFFICIAL_QUESTION_POOL[subjectKey] = [];
@@ -4535,7 +4879,7 @@
     });
 
     entries.forEach(({ question, context }) => {
-      const normalized = normalizeOfficialEntry(question, context, context.index);
+      const normalized = normalizeOfficialEntry(question, context, context.index, runtime);
       if (!normalized) {
         warnings.push("Пропущен вопрос с неизвестным предметом в официальном пакете.");
         return;
