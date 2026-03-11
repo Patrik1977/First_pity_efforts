@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ОГЭ-тренажер: 9 -> 10 класс</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      (function () {
+        function ensureErrorBox() {
+          var box = document.getElementById("bootErrorBox");
+          if (box) {
+            return box;
+          }
+          box = document.createElement("div");
+          box.id = "bootErrorBox";
+          box.style.position = "fixed";
+          box.style.left = "12px";
+          box.style.right = "12px";
+          box.style.bottom = "12px";
+          box.style.zIndex = "99999";
+          box.style.background = "#fff4f4";
+          box.style.border = "1px solid #d88484";
+          box.style.borderRadius = "10px";
+          box.style.padding = "10px 12px";
+          box.style.font = "12px/1.4 monospace";
+          box.style.color = "#6a1a1a";
+          box.style.whiteSpace = "pre-wrap";
+          document.addEventListener("DOMContentLoaded", function () {
+            if (!document.getElementById("bootErrorBox")) {
+              document.body.appendChild(box);
+            }
+          });
+          return box;
+        }
+
+        function showBootError(text) {
+          var box = ensureErrorBox();
+          box.textContent = text + "\n\nBoot log:\n" + (window.__bootLog || []).join("\n");
+          if (document.body && !document.getElementById("bootErrorBox")) {
+            document.body.appendChild(box);
+          }
+        }
+
+        function isBrowserCompatible() {
+          try {
+            new Function("return ({a:1, b:2})");
+            new Function("const x = {a:1}; const y = {...x}; return y.a;");
+            return true;
+          } catch (error) {
+            showBootError(
+              "Браузер слишком старый для этой версии тренажера.\n" +
+                "Откройте сайт в актуальном Google Chrome / Edge / Firefox."
+            );
+            return false;
+          }
+        }
+
+        function loadScriptsSequentially() {
+          var scripts = ["officialPackData.js", "questionBank.js", "assessmentEngine.js", "planningEngine.js", "app.js"];
+          var index = 0;
+          var cacheToken = String(Date.now());
+          window.__bootLog = [];
+          window.__bootCurrentScript = "";
+
+          function loadNext() {
+            if (index >= scripts.length) {
+              window.__bootLog.push("All scripts loaded");
+              return;
+            }
+
+            var src = scripts[index];
+            window.__bootCurrentScript = src;
+            window.__bootLog.push("Loading: " + src);
+            var script = document.createElement("script");
+            script.src = src + "?v=" + encodeURIComponent(cacheToken);
+            script.onload = function () {
+              window.__bootLog.push("Loaded: " + src);
+              index += 1;
+              loadNext();
+            };
+            script.onerror = function () {
+              window.__bootLog.push("Failed: " + src);
+              showBootError("Ошибка загрузки скрипта: " + src);
+            };
+            document.body.appendChild(script);
+          }
+
+          loadNext();
+        }
+
+        window.addEventListener(
+          "error",
+          function (event) {
+            var target = event.target || event.srcElement;
+            if (target && target.tagName === "SCRIPT" && target.src) {
+              showBootError("Ошибка ресурса SCRIPT: " + target.src);
+              return;
+            }
+            var file = event.filename || "(unknown file)";
+            var line = event.lineno || 0;
+            var col = event.colno || 0;
+            var message = event.message || "Script error";
+            if (file === "(unknown file)" && window.__bootCurrentScript) {
+              file = window.__bootCurrentScript + " (detected by loader)";
+            }
+            showBootError("JS error: " + message + "\n@ " + file + ":" + line + ":" + col);
+          },
+          true
+        );
+
+        window.addEventListener("DOMContentLoaded", function () {
+          if (!isBrowserCompatible()) {
+            return;
+          }
+          loadScriptsSequentially();
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="background-glow glow-a"></div>
+    <div class="background-glow glow-b"></div>
+
+    <main class="app-shell">
+      <section class="panel hidden" id="onboardingView">
+        <h2>Добро пожаловать</h2>
+        <p class="setup-note">
+          Это офлайн-тренажер подготовки к ОГЭ. Автоматическая проверка развернутых ответов и устных задач
+          выполняется как учебная самопроверка с чек-листом.
+        </p>
+        <div class="analytics-grid">
+          <article class="analytics-card">
+            <h3>Режимы</h3>
+            <p>Тренировка по темам, работа над ошибками, экзаменационные сценарии.</p>
+          </article>
+          <article class="analytics-card">
+            <h3>Как начать</h3>
+            <p>Выберите предмет, затем рекомендованный режим и количество вопросов.</p>
+          </article>
+        </div>
+        <div class="exam-actions">
+          <button id="onboardingStartBtn" class="primary-btn">Начать работу</button>
+          <button id="onboardingSkipBtn" class="ghost-btn">Пропустить</button>
+        </div>
+      </section>
+
+      <header class="hero">
+        <p class="hero-badge">Москва · подготовка к переходу в 10 класс</p>
+        <h1>ОГЭ-тренажер</h1>
+        <p class="hero-name">имени Алексея Маркова</p>
+        <p class="hero-subtitle">
+          Офлайн-платформа подготовки: режимы тренировки, экзамен по предметной модели, карта покрытия и
+          рекомендации маршрутов.
+        </p>
+      </header>
+
+      <section class="panel">
+        <div class="top-nav">
+          <button id="openTrainerBtn" class="top-nav-btn active">Тренажер</button>
+          <button id="openProgressBtn" class="top-nav-btn">Мой прогресс</button>
+          <button id="openCoverageBtn" class="top-nav-btn">Покрытие программы</button>
+          <button id="openNextStepsBtn" class="top-nav-btn">Что делать дальше</button>
+          <button id="openReportBtn" class="top-nav-btn">Отчёт</button>
+        </div>
+      </section>
+
+      <section class="panel" id="trainerView">
+        <h2>Режим подготовки</h2>
+        <div class="mode-grid" id="modeGrid">
+          <button data-mode="topic" class="mode-card active">
+            <strong>Тренировка по темам</strong>
+            <span>Выбор сегмента, сложности, формата и объема</span>
+          </button>
+          <button data-mode="mistakes" class="mode-card">
+            <strong>Работа над ошибками</strong>
+            <span>Фокус на слабых и нестабильных темах</span>
+          </button>
+          <button data-mode="exam" class="mode-card">
+            <strong>Экзамен</strong>
+            <span>Смешанный или по модели предмета</span>
+          </button>
+        </div>
+
+        <h3 class="section-title">Предмет</h3>
+        <div class="subject-cards" id="subjectCards"></div>
+        <div class="exam-actions quick-actions">
+          <button id="quickExactExamBtn" class="primary-btn">Пройти точный экзамен</button>
+          <button id="quickWeakTopicsBtn" class="ghost-btn">Потренировать слабые темы</button>
+          <button id="quickMistakesBtn" class="ghost-btn">Сделать работу над ошибками</button>
+          <button id="quickContinueBtn" class="ghost-btn">Продолжить подготовку</button>
+        </div>
+
+        <div class="setup-grid">
+          <label class="field">
+            <span>Предмет</span>
+            <select id="subjectSelect"></select>
+          </label>
+
+          <label class="field exam-only">
+            <span>Тип экзамена</span>
+            <select id="examModelSelect">
+              <option value="mixedTrainer">Смешанный экзамен-тренажер</option>
+              <option value="subjectModelExact">Точный экзаменационный макет</option>
+              <option value="subjectModelTraining">Экзаменационная тренировка</option>
+            </select>
+          </label>
+
+          <label class="field exam-only">
+            <span>Вариант/seed (1-15)</span>
+            <select id="variantSelect"></select>
+          </label>
+
+          <label class="field topic-only">
+            <span>Сегмент / тема</span>
+            <select id="segmentSelect"></select>
+          </label>
+
+          <label class="field topic-only">
+            <span>Сложность</span>
+            <select id="difficultySelect">
+              <option value="any">Любая</option>
+              <option value="basic">basic</option>
+              <option value="medium">medium</option>
+              <option value="hard">hard</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Количество вопросов</span>
+            <input id="questionCountInput" type="number" min="10" step="1" />
+          </label>
+
+          <label class="field exam-only">
+            <span>Лимит времени (минут)</span>
+            <input id="timeLimitInput" type="number" min="15" step="1" />
+          </label>
+        </div>
+
+        <p class="setup-note" id="limitsHint"></p>
+        <p class="setup-note" id="modeHint"></p>
+
+        <div class="meta-block">
+          <h3>Продолжить с места остановки</h3>
+          <div id="resumeSessionBox"></div>
+          <div class="exam-actions">
+            <button id="clearResumeSessionBtn" class="ghost-btn">Сбросить сохранённую сессию</button>
+          </div>
+        </div>
+
+        <div class="meta-block">
+          <h3>Документы ФИПИ</h3>
+          <div id="fipiLinks" class="chips"></div>
+        </div>
+
+        <div class="meta-block">
+          <h3>Слабые темы по предмету</h3>
+          <div id="weakTopicsBox"></div>
+          <div class="exam-actions">
+            <button id="resetSubjectStatsFromWeakBtn" class="ghost-btn">Сбросить статистику предмета</button>
+          </div>
+        </div>
+
+        <div class="meta-block exam-only">
+          <h3>Матрица покрытия экзамена</h3>
+          <div id="coverageBox"></div>
+        </div>
+
+        <div class="meta-block exam-only">
+          <h3>Статусы вариантов</h3>
+          <div id="variantStatusBox"></div>
+          <div class="exam-actions">
+            <button id="openVariantBtn" class="primary-btn">Открыть выбранный вариант</button>
+            <button id="generateVariantBtn" class="ghost-btn">Сгенерировать новый вариант</button>
+            <button id="rebuildVariantBtn" class="ghost-btn">Пересобрать вариант</button>
+            <button id="compareVariantsBtn" class="ghost-btn">Сравнить варианты</button>
+          </div>
+          <div class="exam-actions">
+            <button id="resetSubjectStatsBtn" class="ghost-btn">Сбросить статистику предмета</button>
+            <button id="resetAllStatsBtn" class="ghost-btn">Сбросить всю статистику</button>
+          </div>
+        </div>
+
+        <div class="meta-block">
+          <h3>Диагностика банка (dev/debug)</h3>
+          <div class="exam-actions">
+            <button id="runBankDiagnosticsBtn" class="ghost-btn">Запустить диагностику банка</button>
+            <button id="closeBankDiagnosticsBtn" class="ghost-btn hidden">Закрыть диагностику</button>
+          </div>
+          <div id="bankDiagnosticsBox"></div>
+        </div>
+
+        <div class="exam-actions">
+          <button id="startBtn" class="primary-btn">Начать</button>
+          <button id="resetDefaultsBtn" class="ghost-btn">Сбросить параметры</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="sessionView">
+        <div class="exam-header">
+          <div>
+            <p class="meta-line" id="metaSubject"></p>
+            <h2 id="metaTitle"></h2>
+          </div>
+          <div class="progress-wrap">
+            <p id="progressText">Вопрос 1</p>
+            <div class="progress-track">
+              <div id="progressBar" class="progress-bar"></div>
+            </div>
+          </div>
+          <div class="timer-box" id="timerBox">
+            <p>Осталось</p>
+            <strong id="timerText">--:--</strong>
+          </div>
+        </div>
+
+        <article class="question-card">
+          <p class="question-topic" id="questionTopic"></p>
+          <p class="question-meta" id="questionMeta"></p>
+          <h3 id="questionPrompt"></h3>
+          <div id="questionSupplement" class="question-supplement"></div>
+          <div id="optionsBox" class="options-box"></div>
+        </article>
+
+        <article class="feedback-box hidden" id="feedbackBox"></article>
+
+        <div class="exam-actions">
+          <button id="nextBtn" class="primary-btn">Ответить</button>
+          <button id="finishEarlyBtn" class="ghost-btn">Завершить досрочно</button>
+          <button id="exitSessionBtn" class="ghost-btn">Вернуться к настройкам</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="resultView">
+        <h2>Результат сессии</h2>
+        <p class="result-meta" id="resultMeta"></p>
+
+        <div class="result-grid">
+          <article class="result-card">
+            <p>Баллы</p>
+            <h3 id="scoreValue">0 / 0</h3>
+          </article>
+          <article class="result-card">
+            <p>Точность</p>
+            <h3 id="percentValue">0%</h3>
+          </article>
+          <article class="result-card">
+            <p>Статус подготовки</p>
+            <h3 id="readinessValue">-</h3>
+          </article>
+        </div>
+
+        <div class="analytics-grid">
+          <article class="analytics-card">
+            <h3>По сложности</h3>
+            <div id="difficultyStats"></div>
+          </article>
+          <article class="analytics-card">
+            <h3>По темам</h3>
+            <div id="segmentStats"></div>
+          </article>
+        </div>
+
+        <div class="meta-block">
+          <h3>Следующий шаг</h3>
+          <div id="nextStepBox"></div>
+        </div>
+
+        <div class="mistakes-wrap">
+          <h3>Разбор</h3>
+          <div id="reviewList"></div>
+        </div>
+
+        <div class="exam-actions">
+          <button id="repeatSimilarBtn" class="primary-btn">Повторить похожие задания</button>
+          <button id="startMistakesBtn" class="ghost-btn">Начать работу над ошибками</button>
+          <button id="startExamBtn" class="ghost-btn">Пройти экзамен</button>
+          <button id="backToSetupBtn" class="ghost-btn">К настройкам</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="progressView">
+        <h2>Мой прогресс (контур ученика)</h2>
+        <div class="result-grid">
+          <article class="result-card">
+            <p>Сессий</p>
+            <h3 id="progressSessions">0</h3>
+          </article>
+          <article class="result-card">
+            <p>Решено вопросов</p>
+            <h3 id="progressQuestions">0</h3>
+          </article>
+          <article class="result-card">
+            <p>Средняя точность</p>
+            <h3 id="progressAccuracy">0%</h3>
+          </article>
+        </div>
+
+        <div class="analytics-grid">
+          <article class="analytics-card">
+            <h3>Прогресс по предметам</h3>
+            <div id="progressBySubject"></div>
+          </article>
+          <article class="analytics-card">
+            <h3>Слабые темы</h3>
+            <div id="progressWeakTopics"></div>
+          </article>
+        </div>
+
+        <div class="meta-block">
+          <h3>Сравнение вариантов 1–15</h3>
+          <div id="variantCompareBox"></div>
+        </div>
+
+        <div class="meta-block">
+          <h3>Последние сессии</h3>
+          <div id="recentSessions"></div>
+        </div>
+
+        <div class="exam-actions">
+          <button id="refreshProgressBtn" class="ghost-btn">Обновить</button>
+          <button id="toTrainerBtn" class="primary-btn">Вернуться в тренажер</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="coverageView">
+        <h2>Покрытие программы</h2>
+        <p class="setup-note">Карта покрытия по сегментам, темам, форматам и сложности.</p>
+
+        <div class="meta-block">
+          <h3>Сводка покрытия</h3>
+          <div id="coverageSummaryBox"></div>
+        </div>
+
+        <div class="meta-block">
+          <h3>Детализация по темам</h3>
+          <div id="coverageTableBox"></div>
+        </div>
+
+        <div class="exam-actions">
+          <button id="refreshCoverageBtn" class="ghost-btn">Обновить покрытие</button>
+          <button id="coverageToTrainerBtn" class="primary-btn">Вернуться в тренажер</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="nextStepsView">
+        <h2>Что делать дальше</h2>
+        <div class="setup-grid">
+          <label class="field">
+            <span>Маршрут подготовки</span>
+            <select id="routeSelect"></select>
+          </label>
+        </div>
+
+        <div class="exam-actions">
+          <button id="buildNextStepsBtn" class="primary-btn">Сформировать рекомендации</button>
+          <button id="nextStepsToTrainerBtn" class="ghost-btn">Вернуться в тренажер</button>
+        </div>
+
+        <div class="meta-block">
+          <h3>Рекомендованный план</h3>
+          <div id="nextActionsBox"></div>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="reportView">
+        <h2>Отчёт (родительский контур)</h2>
+        <p class="setup-note">Локальная аналитика без серверной части.</p>
+
+        <div class="meta-block">
+          <h3>Сводка готовности</h3>
+          <div id="reportSummaryBox"></div>
+        </div>
+
+        <div class="meta-block">
+          <h3>Динамика и риски</h3>
+          <div id="reportTableBox"></div>
+        </div>
+
+        <div class="exam-actions">
+          <button id="exportJsonBtn" class="ghost-btn">Экспорт JSON</button>
+          <button id="importJsonBtn" class="ghost-btn">Импорт JSON</button>
+          <button id="exportHtmlReportBtn" class="ghost-btn">Экспорт HTML-отчёта</button>
+          <button id="refreshReportBtn" class="ghost-btn">Обновить отчёт</button>
+          <button id="reportToTrainerBtn" class="primary-btn">Вернуться в тренажер</button>
+        </div>
+        <input id="importJsonInput" type="file" accept="application/json" class="hidden-file-input" />
+      </section>
+    </main>
+
+  </body>
+</html>

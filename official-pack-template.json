@@ -1,0 +1,31 @@
+{
+  "type": "oge-official-bank-pack",
+  "version": 1,
+  "source": "ФИПИ",
+  "variants": [
+    {
+      "subject": "russian",
+      "year": 2026,
+      "variant": 1,
+      "questions": []
+    },
+    {
+      "subject": "math",
+      "year": 2026,
+      "variant": 1,
+      "questions": []
+    },
+    {
+      "subject": "physics",
+      "year": 2026,
+      "variant": 1,
+      "questions": []
+    },
+    {
+      "subject": "english",
+      "year": 2026,
+      "variant": 1,
+      "questions": []
+    }
+  ]
+}

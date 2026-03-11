@@ -1,0 +1,9 @@
+.DS_Store
+
+# Local raw archives used only for content prep, not for runtime
+data/fipi_archives/
+data/fipi_unzipped/
+data/fipi_official_pack.auto.json
+
+# Unrelated local folder
+ГИМС_Экзамен*/
