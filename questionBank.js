@@ -4609,7 +4609,22 @@
       }
     }
 
-    return keys.map((key) => map[key]);
+    const rawOptions = keys.map((key) => map[key]);
+    const seen = new Set();
+    let hasDuplicates = false;
+    rawOptions.forEach((option) => {
+      const signature = normalizeTextToken(option);
+      if (!signature) {
+        return;
+      }
+      if (seen.has(signature)) {
+        hasDuplicates = true;
+        return;
+      }
+      seen.add(signature);
+    });
+
+    return !hasDuplicates && rawOptions.length >= 2 ? rawOptions : [];
   }
 
   function extractOfficialMatching(prompt) {
