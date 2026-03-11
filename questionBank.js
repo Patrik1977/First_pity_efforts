@@ -4423,6 +4423,79 @@
     return keys.map((key) => map[key]);
   }
 
+  function extractOfficialMatching(prompt) {
+    const source = normalizeOfficialPromptText(prompt);
+    if (!/установите соответствие/i.test(source)) {
+      return null;
+    }
+
+    const left = [];
+    const leftRegex = /(?:^|\s)([А-ЯA-Z])\)\s*([\s\S]*?)(?=(?:\s[А-ЯA-Z]\)\s)|(?:\s\d{1,2}\)\s)|(?:\sЗапишите\b)|(?:\sОтвет\b)|$)/g;
+    let match;
+    while ((match = leftRegex.exec(source))) {
+      const id = String(match[1]).trim();
+      const label = normalizeOfficialPromptText(match[2]).replace(/[.;,]+$/, "").trim();
+      if (!id || !label || label.length > 260) {
+        continue;
+      }
+      left.push({ id, label });
+    }
+
+    const right = [];
+    const rightRegex = /(?:^|\s)(\d{1,2})\)\s*([\s\S]*?)(?=(?:\s\d{1,2}\)\s)|(?:\sЗапишите\b)|(?:\sОтвет\b)|$)/g;
+    while ((match = rightRegex.exec(source))) {
+      const id = String(Number(match[1]));
+      const label = normalizeOfficialPromptText(match[2]).replace(/[.;,]+$/, "").trim();
+      if (!id || !label || label.length > 280) {
+        continue;
+      }
+      right.push({ id, label });
+    }
+
+    if (left.length < 2 || right.length < 3) {
+      return null;
+    }
+
+    return { left, right };
+  }
+
+  function parseMatchingPairsFromAnswer(answerVariant, leftItems, rightItems) {
+    const leftIds = (leftItems || []).map((item) => item.id);
+    const rightIds = new Set((rightItems || []).map((item) => item.id));
+    const token = String(answerVariant || "").trim();
+    if (!token || !leftIds.length) {
+      return {};
+    }
+
+    const compact = token.replace(/\s+/g, "");
+    const map = {};
+    if (!/[,.|;:/-]/.test(compact) && compact.length === leftIds.length) {
+      compact.split("").forEach((digit, index) => {
+        if (rightIds.has(digit)) {
+          map[leftIds[index]] = digit;
+        }
+      });
+      if (Object.keys(map).length === leftIds.length) {
+        return map;
+      }
+    }
+
+    const parts = token.split(/[^\d]+/).filter(Boolean);
+    if (parts.length === leftIds.length) {
+      parts.forEach((part, index) => {
+        const normalized = String(Number(part));
+        if (rightIds.has(normalized)) {
+          map[leftIds[index]] = normalized;
+        }
+      });
+      if (Object.keys(map).length === leftIds.length) {
+        return map;
+      }
+    }
+
+    return {};
+  }
+
   function extractPassageAndTask(prompt) {
     const source = normalizeOfficialPromptText(prompt);
     if (!source) {
@@ -4574,11 +4647,24 @@
     }
 
     const looksLikeWriting = /(сочинени|развёрнут|объяснит|аргумент|напишите|письменный ответ)/i.test(promptText);
+    const matchingData = extractOfficialMatching(promptText);
     const options = extractOfficialOptions(promptText);
     const wantsMany = /(выберите\s+(два|три|несколько)|укажите\s+(два|три|несколько)|варианты ответов)/i.test(promptText);
     const answerVariants = parseOfficialAnswerVariants(answerToken || "");
 
-    if (!looksLikeWriting && options.length >= 2) {
+    if (!looksLikeWriting && matchingData) {
+      repaired.type = "matching";
+      repaired.matching = {
+        left: matchingData.left,
+        right: matchingData.right,
+      };
+      const firstAnswerToken = answerVariants.length ? answerVariants[0] : "";
+      const pairs = parseMatchingPairsFromAnswer(firstAnswerToken, matchingData.left, matchingData.right);
+      repaired.matchPairs = pairs;
+      if (!Object.keys(pairs).length) {
+        repaired.selfCheckOnly = true;
+      }
+    } else if (!looksLikeWriting && options.length >= 2) {
       repaired.options = options;
 
       if (answerVariants.length) {
@@ -5001,16 +5087,42 @@
     }
 
     const used = new Set();
+    const officialShare = subjectKey === "russian" ? 0.5 : 0.35;
     const targetOfficial = Math.min(
       officialPool.length,
-      Math.max(6, Math.ceil(normalizedCount * 0.35)),
+      Math.max(subjectKey === "russian" ? 10 : 6, Math.ceil(normalizedCount * officialShare)),
     );
-    const officialSelected = selectFromPoolDeterministic(
-      officialPool,
-      targetOfficial,
-      subjectKey,
-      `official-${variant}`,
-      used,
+    const highlightPool =
+      subjectKey === "russian"
+        ? officialPool.filter(
+            (question) =>
+              Boolean(question.passage) ||
+              question.type === "matching" ||
+              question.type === "multi-choice" ||
+              /установите соответствие|прочитайте текст/i.test(String(question.prompt || "")),
+          )
+        : [];
+    const highlightTarget =
+      subjectKey === "russian"
+        ? Math.min(highlightPool.length, Math.max(2, Math.ceil(targetOfficial * 0.4)))
+        : 0;
+    const highlightSelected = highlightTarget
+      ? selectFromPoolDeterministic(
+          highlightPool,
+          highlightTarget,
+          subjectKey,
+          `official-highlight-${variant}`,
+          used,
+        )
+      : [];
+    const officialSelected = highlightSelected.concat(
+      selectFromPoolDeterministic(
+        officialPool,
+        Math.max(0, targetOfficial - highlightSelected.length),
+        subjectKey,
+        `official-${variant}`,
+        used,
+      ),
     );
 
     const merged = officialSelected.slice();
@@ -6135,8 +6247,51 @@
         });
       }
 
+      const preselected = [];
+      if (subjectKey === "russian" && block.id === "ru-text" && filtered.length) {
+        const priorityChecks = [
+          (question) => Boolean(question.passage),
+          (question) => question.type === "matching",
+          (question) => question.type === "multi-choice",
+        ];
+        priorityChecks.forEach((predicate, index) => {
+          if (preselected.length >= blockCount) {
+            return;
+          }
+          const candidates = filtered.filter((question) => {
+            const signature = question.signature || createQuestionSignature(question);
+            const already = preselected.some(
+              (item) => (item.signature || createQuestionSignature(item)) === signature,
+            );
+            return !already && !used.has(signature) && predicate(question);
+          });
+          if (!candidates.length) {
+            return;
+          }
+          const picked = selectFromPoolDeterministic(
+            candidates,
+            1,
+            subjectKey,
+            `ru-text-priority-${variantId}-${index}`,
+            used,
+          );
+          if (picked.length) {
+            preselected.push(picked[0]);
+          }
+        });
+      }
+
       const difficultyPlan = scaledPlan(blockCount, block.difficultyPlan || { basic: 2, medium: 4, hard: 4 });
-      const chunk = selectQuestionsByPlan(filtered, blockCount, difficultyPlan, rng, used);
+      preselected.forEach((question) => {
+        if (difficultyPlan[question.difficulty] > 0) {
+          difficultyPlan[question.difficulty] -= 1;
+        }
+      });
+
+      const remainderCount = Math.max(0, blockCount - preselected.length);
+      const chunk = preselected.concat(
+        selectQuestionsByPlan(filtered, remainderCount, difficultyPlan, rng, used),
+      ).slice(0, blockCount);
 
       if (chunk.length < blockCount && block.required) {
         const payload = {

@@ -558,6 +558,12 @@
       });
       const answered = keys.filter((key) => pairs[key]).length;
       const isAnswered = answered > 0;
+      if (question.selfCheckOnly || !keys.length) {
+        return evaluateWithoutAutoKey(
+          isAnswered,
+          "Сопоставление сохранено. Для точной проверки нужна сверка по официальному ключу.",
+        );
+      }
       const ratio = keys.length ? matched / keys.length : 0;
       const isCorrect = keys.length > 0 && matched === keys.length;
       return { isAnswered, isCorrect, score: isCorrect ? 1 : ratio, detail: { matched, total: keys.length } };
