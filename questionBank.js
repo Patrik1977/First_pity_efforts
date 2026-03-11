@@ -226,7 +226,7 @@
               count: 10,
               segments: ["Орфография", "Пунктуация"],
               difficultyPlan: { basic: 3, medium: 4, hard: 3 },
-              allowedTypes: ["single-choice", "multi-choice"],
+              allowedTypes: ["single-choice", "multi-choice", "short-text", "fill-in-the-blank"],
               required: true,
             },
             {
@@ -235,7 +235,7 @@
               count: 10,
               segments: ["Синтаксис", "Лексика"],
               difficultyPlan: { basic: 1, medium: 4, hard: 5 },
-              allowedTypes: ["single-choice", "short-text", "sequence-order"],
+              allowedTypes: ["single-choice", "multi-choice", "short-text", "sequence-order", "fill-in-the-blank"],
               required: true,
             },
             {
@@ -246,6 +246,7 @@
               difficultyPlan: { basic: 2, medium: 4, hard: 4 },
               allowedTypes: [
                 "single-choice",
+                "multi-choice",
                 "matching",
                 "extended-answer-lite",
                 "fill-in-the-blank",
@@ -4349,12 +4350,11 @@
         .split("|")
         .map((item) =>
           String(item || "")
-            .replace(/[^\d,.\-]/g, "")
-            .replace(/^-+/, "")
-            .replace(/-+$/, "")
+            .replace(/[«»"“”]/g, "")
+            .replace(/[^\p{L}\p{N},.\-]/gu, "")
             .trim(),
         )
-        .filter(Boolean),
+        .filter((item) => Boolean(item) && item.length <= 48),
     );
   }
 
@@ -4540,14 +4540,34 @@
       .replace(/\s{2,}/g, " ");
 
     const map = {};
-    const pairRegex = /(?:^|\s)([1-2]?\d)\s+([0-9][0-9.,-]*(?:\s*\|\s*[0-9][0-9.,-]*)?)/g;
+    const stopTokens = new Set([
+      "балл",
+      "балла",
+      "баллов",
+      "если",
+      "или",
+      "ответ",
+      "номера",
+      "номер",
+      "задания",
+      "критерии",
+    ]);
+    const pairRegex = /(?:^|\s)([1-2]?\d)\s+([^\s]{1,48})/g;
     let match;
     while ((match = pairRegex.exec(compact))) {
       const questionNumber = Number(match[1]);
       if (!Number.isInteger(questionNumber) || questionNumber < 1 || questionNumber > 30) {
         continue;
       }
-      const answerToken = parseOfficialAnswerVariants(match[2]).join("|");
+      const rawToken = String(match[2] || "").replace(/[;:]+$/g, "");
+      const normalizedToken = normalizeTextToken(rawToken);
+      if (!normalizedToken || stopTokens.has(normalizedToken)) {
+        continue;
+      }
+      if (!/[0-9A-Za-zА-Яа-яЁё]/.test(rawToken)) {
+        continue;
+      }
+      const answerToken = parseOfficialAnswerVariants(rawToken).join("|");
       if (!answerToken) {
         continue;
       }
@@ -4557,6 +4577,31 @@
     }
 
     return Object.keys(map).length >= 5 ? map : null;
+  }
+
+  function stripOfficialServiceTail(prompt) {
+    const source = normalizeOfficialPromptText(prompt);
+    if (!source) {
+      return "";
+    }
+
+    const markers = [
+      "Проверьте, чтобы каждый ответ был записан рядом с номером соответствующего задания",
+      "Система оценивания экзаменационной работы",
+      "Критерии оценивания выполнения заданий",
+      "Общие требования к выполнению заданий с развёрнутым ответом",
+      "Часть 3 Используя прочитанный текст из части 2, выполните",
+    ];
+
+    let cutIndex = -1;
+    markers.forEach((marker) => {
+      const idx = source.toLowerCase().indexOf(marker.toLowerCase());
+      if (idx > 60 && (cutIndex === -1 || idx < cutIndex)) {
+        cutIndex = idx;
+      }
+    });
+
+    return cutIndex > 0 ? source.slice(0, cutIndex).trim() : source;
   }
 
   function buildOfficialAnswerMaps(entries) {
@@ -4619,7 +4664,7 @@
     const answerMap = (runtime && runtime.answerMaps && runtime.answerMaps[contextKey]) || {};
     const answerToken = answerMap && answerMap[String(questionNumber)];
 
-    const basePrompt = normalizeOfficialPromptText(question.prompt || "");
+    const basePrompt = stripOfficialServiceTail(question.prompt || "");
     const split = extractPassageAndTask(basePrompt);
     const promptText = split.promptText || basePrompt;
 
@@ -4647,6 +4692,10 @@
     }
 
     const looksLikeWriting = /(сочинени|развёрнут|объяснит|аргумент|напишите|письменный ответ)/i.test(promptText);
+    const shortTextCue =
+      /(укажите все цифры|запишите слово|запишите ответ|раскройте скобки|замените словосочетание|вставьте пропущенные буквы)/i.test(
+        promptText,
+      );
     const matchingData = extractOfficialMatching(promptText);
     const options = extractOfficialOptions(promptText);
     const wantsMany = /(выберите\s+(два|три|несколько)|укажите\s+(два|три|несколько)|варианты ответов)/i.test(promptText);
@@ -4704,6 +4753,10 @@
         repaired.type = "short-text";
         repaired.acceptedAnswers = answerVariants;
       }
+    } else if (!looksLikeWriting && shortTextCue) {
+      repaired.type = "short-text";
+      repaired.selfCheckOnly = true;
+      repaired.acceptedAnswers = [];
     } else {
       repaired.type = "extended-answer-lite";
       repaired.rubric = ensureOfficialRubric(repaired);
